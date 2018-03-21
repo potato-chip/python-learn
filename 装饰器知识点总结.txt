@@ -1,0 +1,137 @@
+装饰器本质上是一个Python函数，它可以让其他函数在不需要做任何代码变动的前提下增加额外功能，
+装饰器的返回值也是一个函数对象。它经常用于有切面需求的场景，
+比如：插入日志、性能测试、事务处理、缓存、权限校验等场景。
+装饰器是解决这类问题的绝佳设计，有了装饰器，
+我们就可以抽离出大量与函数功能本身无关的雷同代码并继续重用。
+装饰器其实就是一个闭包，把一个函数当做参数然后返回一个替代版函数
+装饰器的作用就是为已经存在的函数或对象添加额外的功能
+装饰器的作用就是为已经存在的函数或对象添加额外的功能。
+在早些时候 (Python Version < 2.4，2004年以前)，为一个函数添加额外功能的写法是这样的。
+def debug(func):
+    def wrapper():
+        print "[DEBUG]: enter {}()".format(func.__name__)
+        return func()
+    return wrapper
+
+def say_hello():
+    print "hello!"
+
+say_hello = debug(say_hello)  # 添加功能并保持原函数名不变
+上面的debug函数其实已经是一个装饰器了，它对原函数做了包装并返回了另外一个函数，额外添加了一些功能。
+因为这样写实在不太优雅，在后面版本的Python中支持了@语法糖，下面代码等同于早期的写法。
+def debug(func):
+    def wrapper():
+        print "[DEBUG]: enter {}()".format(func.__name__)
+        return func()
+    return wrapper
+
+@debug
+def say_hello():
+    print "hello!"
+**************************
+@语法糖的执行原理就是say_hello = debug(say_hello)这样的
+**************************
+装饰器不传参，但是修饰的函数需要传参，那么就在内层定义的函数中写形参
+如果被装饰的函数需要传入参数
+可以指定装饰器函数wrapper接受和原函数一样的参数
+def debug(func):
+    def wrapper(something):  # 指定一模一样的参数
+        print "[DEBUG]: enter {}()".format(func.__name__)
+        return func(something)
+    return wrapper  # 返回包装过函数
+
+@debug
+def say(something):
+    print "hello {}!".format(something)
+
+当传入多个参数的时候，在内层函数出，传入可变参数
+python提供了可变参数*args和关键字参数**kwargs，有了这两个参数，装饰器就可以用于任意目标函数了
+def debug(func):
+    def wrapper(*args, **kwargs):  # 指定宇宙无敌参数
+        print "[DEBUG]: enter {}()".format(func.__name__)
+        print 'Prepare and say...',
+        return func(*args, **kwargs)
+    return wrapper  # 返回
+
+@debug
+def say(something):
+    print "hello {}!".format(something)
+	
+带参数的装饰器
+def logging(level):
+    def wrapper(func):
+        def inner_wrapper(*args, **kwargs):
+            print "[{level}]: enter function {func}()".format(
+                level=level,
+                func=func.__name__)
+            return func(*args, **kwargs)
+        return inner_wrapper
+    return wrapper
+
+@logging(level='INFO')
+def say(something):
+    print "say {}!".format(something)
+*********************************
+# 如果没有使用@语法，等同于
+# say = logging(level='INFO')(say)
+*************************************
+@logging(level='DEBUG')
+def do(something):
+    print "do {}...".format(something)
+
+if __name__ == '__main__':
+    say('hello')
+    do("my work")
+===================
+基于类实现的装饰器
+
+装饰器函数其实是这样一个接口约束，它必须接受一个callable对象作为参数，然后返回一个callable对象。
+在Python中一般callable对象都是函数，但也有例外。只要某个对象重载了__call__()方法，那么这个对象就是callable的
+class Test():
+    def __call__(self):
+        print 'call me!'
+
+t = Test()
+t()  # call me
+像__call__这样前后都带下划线的方法在Python中被称为内置方法，有时候也被称为魔法方法。
+重载这些魔法方法一般会改变对象的内部行为。上面这个例子就让一个类对象拥有了被调用的行为。
+装饰器要求接受一个callable对象，并返回一个callable对象
+让类的构造函数__init__()接受一个函数，然后重载__call__()并返回一个函数，也可以达到装饰器函数的效果。
+class logging(object):
+    def __init__(self, func):
+        self.func = func
+
+    def __call__(self, *args, **kwargs):
+        print "[DEBUG]: enter function {func}()".format(
+            func=self.func.__name__)
+        return self.func(*args, **kwargs)
+@logging-----用类的方式与非类的方式是一样的效果
+def say(something):
+    print "say {}!".format(something)
+
+say=logging(say)
+say()
+
+带参数的类装饰器-----参数需要在类的初始化函数中进行保存，然后再在__call__方法中使用
+
+如果需要通过类形式实现带参数的装饰器，那么会比前面的例子稍微复杂一点。那么在构造函数里接受的就不是一个函数，
+而是传入的参数。通过类把这些参数保存起来。然后在重载__call__方法是就需要接受一个函数并返回一个函数
+class logging(object):
+    def __init__(self, level='INFO'):
+        self.level = level
+        
+    def __call__(self, func): # 接受函数
+        def wrapper(*args, **kwargs):
+            print "[{level}]: enter function {func}()".format(
+                level=self.level,
+                func=func.__name__)
+            func(*args, **kwargs)
+        return wrapper  #返回函数
+
+@logging(level='INFO')
+def say(something):
+    print "say {}!".format(something)
+	
+***********************
+内置的装饰器
+内置的装饰器和普通的装饰器原理是一样的，只不过返回的不是函数，而是类对象
