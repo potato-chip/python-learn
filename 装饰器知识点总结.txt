@@ -1,3 +1,7 @@
+============
+
+参考博客是https://www.cnblogs.com/cicaday/p/python-decorator.html
+==============
 装饰器本质上是一个Python函数，它可以让其他函数在不需要做任何代码变动的前提下增加额外功能，
 装饰器的返回值也是一个函数对象。它经常用于有切面需求的场景，
 比如：插入日志、性能测试、事务处理、缓存、权限校验等场景。
@@ -44,6 +48,7 @@ def debug(func):
 def say(something):
     print "hello {}!".format(something)
 
+	
 当传入多个参数的时候，在内层函数出，传入可变参数
 python提供了可变参数*args和关键字参数**kwargs，有了这两个参数，装饰器就可以用于任意目标函数了
 def debug(func):
@@ -82,6 +87,38 @@ def do(something):
 if __name__ == '__main__':
     say('hello')
     do("my work")
+===================
+四种类型本质原理：
+装饰器不带参数，修饰的函数也不带参数
+	@debug
+	def say_hello():
+		print "hello!"
+	say_hello = debug(say_hello)
+	say_hello()
+	debug(say_hello)()
+装饰器不带参数，修饰的函数带参数
+	@debug
+	def say(something):
+		print "hello {}!".format(something)
+	say_hello = debug(say_hello)
+	say_hello(something)
+	新赋值的say_hello函数调用的时候，传入被修饰函数的形参值
+	say_hello(something)
+	debug(say_hello)(something)
+装饰器带参数，修饰的函数不带参数
+	@debug(something)
+	def say():
+		print "hello {}!".format()
+	say=debug(something)(say)
+	say()
+	debug(something)(say)()
+装饰器带参数，修饰的函数也带参数
+	@debug(something)
+	def say(otherthing):
+		print "hello {}!".format(otherthing)
+	say=debug(something)(say)
+	say(otherthing)
+	debug(something)(say)(otherthing)
 ===================
 基于类实现的装饰器
 
@@ -131,7 +168,69 @@ class logging(object):
 @logging(level='INFO')
 def say(something):
     print "say {}!".format(something)
-	
+
+类的装饰器实现，主要的是__call__方式的使用	
 ***********************
 内置的装饰器
 内置的装饰器和普通的装饰器原理是一样的，只不过返回的不是函数，而是类对象
+property() 函数的作用是在新式类中返回属性值。
+参数
+    fget -- 获取属性值的函数
+    fset -- 设置属性值的函数
+    fdel -- 删除属性值函数
+    doc -- 属性描述信息
+返回值
+返回新式类属性
+
+class C(object):
+    def __init__(self):
+        self._x = None
+ 
+    def getx(self):
+        return self._x
+ 
+    def setx(self, value):
+        self._x = value
+ 
+    def delx(self):
+        del self._x 
+    x = property(getx, setx, delx, "I'm the 'x' property.")
+如果 c 是 C 的实例化, c.x 将触发 getter,c.x = value 将触发 setter ， del c.x 触发 deleter。
+如果给定 doc 参数，其将成为这个属性值的 docstring，否则 property 函数就会复制 fget 函数的 docstring（如果有的话）。
+将 property 函数用作装饰器可以很方便的创建只读属性：
+@property
+def x(self): ...
+# 等同于
+def x(self): ...
+x = property(x)
+属性有三个装饰器：setter, getter, deleter ，都是在property()的基础上做了一些封装，因为setter和deleter是property()的第二和第三个参数，
+不能直接套用@语法。getter装饰器和不带getter的属性装饰器效果是一样的，估计只是为了凑数，本身没有任何存在的意义。
+经过@property装饰过的函数返回的不再是一个函数，而是一个property对象。
+>>> property()
+<property object at 0x10ff07940>
+
+@staticmethod，@classmethod
+有了@property装饰器的了解，这两个装饰器的原理是差不多的。@staticmethod返回的是一个staticmethod类对象，
+而@classmethod返回的是一个classmethod类对象。他们都是调用的是各自的__init__()构造函数。
+class classmethod(object):
+    """
+    classmethod(function) -> method
+    """    
+    def __init__(self, function): # for @classmethod decorator
+        pass
+    # ...
+class staticmethod(object):
+    """
+    staticmethod(function) -> method
+    """
+    def __init__(self, function): # for @staticmethod decorator
+        pass
+    # ...
+装饰器的@语法就等同调用了这两个类的构造函数。
+class Foo(object):
+    @staticmethod
+    def bar():
+        pass
+    
+    # 等同于 bar = staticmethod(bar)
+	
